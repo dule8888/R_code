@@ -1,0 +1,45 @@
+options(repr.plot.width=6, repr.plot.height=5)
+
+logistic.mod <- function(df){
+  glm(z ~ 0 + x + y, data = df, family = binomial)
+}
+
+
+logistic.pred = function(mod, df, prob = 0.5){
+  df$score = ifelse(predict(mod, type = 'response') > prob, TRUE, FALSE)
+  df
+}
+
+logistic.eval <- function(mod, df, prob = 0.5){
+  require(ggplot2)
+  df = logistic.pred(mod, df, prob = prob)
+  df$conf = ifelse(df$z == TRUE & df$score == TRUE, 'TP',
+                    ifelse(df$z == FALSE & df$score == TRUE, 'FP',
+                           ifelse(df$z == FALSE & df$score == FALSE, 'TN', 'FN')))
+  
+  df$error = ifelse((df$conf == 'FP' | df$conf == 'FN'), 'error', 'correct')
+
+  cols = c('z', 'error')
+  df[, cols] = lapply(df[, cols], as.factor)
+
+  p1 = ggplot(df, aes(x, y)) + 
+    geom_point(aes(color = z, size = 3, shape = error)) +
+    ggtitle('X vs. Y for two classes')
+  print(p1)
+  
+  TP = length(df[df$conf == 'TP', 'conf'])
+  FP = length(df[df$conf == 'FP', 'conf'])
+  TN = length(df[df$conf == 'TN', 'conf'])
+  FN = length(df[df$conf == 'FN', 'conf'])
+  
+  print(paste('accuracy =', as.character((TP + TN)/(TP + TN + FP + FN))))      
+  print(paste('precision =', as.character(signif(TP/(TP + FP)), digits = 2)))     
+  print(paste('recall =', as.character(TP/(TP + FN))))
+  
+  out = data.frame(Positive = c(TP, FP), Negative = c(FN, TN))
+  row.names(out) = c('TruePos', 'TrueNeg')
+  print(out)
+}
+
+mod = logistic.mod(sim.data)
+logistic.eval(mod, sim.data)
